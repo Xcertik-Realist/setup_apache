@@ -71,6 +71,56 @@ done
 
 echo "Subdomains and DNS records created."
 
+# Ask the user for SSH details
+echo "Choose an SSH username:"
+echo "1. root"
+echo "2. ubuntu"
+echo "3. Custom username"
+read -p "Enter the number corresponding to your choice: " ssh_choice
+
+case "$ssh_choice" in
+    1)
+        ssh_username="root"
+        ;;
+    2)
+        ssh_username="ubuntu"
+        ;;
+    3)
+        read -p "Enter a custom username: " ssh_username
+        ;;
+    *)
+        echo "Invalid choice. Using default username 'ubuntu'."
+        ssh_username="ubuntu"
+        ;;
+esac
+
+read -p "Enter the server IP address: " server_ip
+read -p "Enter the path to your SSH key file (e.g., /path/to/key.pem or /path/to/key.ppk): " ssh_key_file
+
+# Convert .ppk to .pem if needed
+if [[ "$ssh_key_file" == *.ppk ]]; then
+    puttygen "$ssh_key_file" -O private-openssh -o "${ssh_key_file%.ppk}.pem"
+    ssh_key_file="${ssh_key_file%.ppk}.pem"
+fi
+
+# SFTP the key file to the server
+sftp "$ssh_username@$server_ip" <<EOF
+put "$ssh_key_file"
+EOF
+
+# Set correct permissions for the key file
+ssh "$ssh_username@$server_ip" "chmod 600 $ssh_key_file"
+
+# Ask the user for the path to the website zip file
+read -p "Enter the path to your website zip file (e.g., /path/to/website.zip): " website_zip_file
+
+# SFTP the website zip file to the server
+sftp "$ssh_username@$server_ip" <<EOF
+put "$website_zip_file"
+EOF
+
+# SSH into the server and unzip the website files
+ssh "$ssh_username@$server_ip" "unzip $website_zip_file -d /var/www/html/"
+
 # Clean up
 sudo apt autoremove -y
-
