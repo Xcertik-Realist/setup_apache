@@ -7,7 +7,7 @@ sudo apt update
 sudo apt upgrade -y
 
 # Install Apache
-sudo apt install apache2 -y
+sudo apt install jq putty-tools apache2 -y
 
 # Ask the user for the domain name
 read -p "Enter your domain name (e.g., example.com): " domain_name
