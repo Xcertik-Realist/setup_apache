@@ -7,7 +7,11 @@ sudo apt update
 sudo apt upgrade -y
 
 # Install Apache
-sudo apt install jq putty-tools apache2 -y
+sudo apt install apache2 -y
+# Install jq for parsing cloudflare response
+sudo apt install jq 
+#install putty tools for coverting ssh key files
+sudo apt install putty-tools
 
 # Ask the user for the domain name
 read -p "Enter your domain name (e.g., example.com): " domain_name
