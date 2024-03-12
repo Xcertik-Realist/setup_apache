@@ -52,28 +52,42 @@ zone_id=$(curl -sX GET "https://api.cloudflare.com/client/v4/zones" \
 # Use the retrieved Zone ID for further operations
 echo "Zone ID for $domain_name: $zone_id"
 
+# Create A record for main domain
+echo "Creating A record for $domain_name"
+read -p "Enter the IP address for $domain_name: " server_ip
+curl -X POST "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records" \
+     -H "Authorization: Bearer $cloudflare_api_key" \
+     -H "Content-Type: application/json" \
+     --data '{"type": "A", "name": "'"$domain_name"'", "content": "'"$server_ip"'", "proxied": false}'
+
+# Create wildcard CNAME record for main domain
+echo "Creating wildcard CNAME record for $domain_name"
+curl -X POST "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records" \
+     -H "Authorization: Bearer $cloudflare_api_key" \
+     -H "Content-Type: application/json" \
+     --data '{"type": "CNAME", "name": "'"$domain_name"'", "content": "'"$domain_name"'", "proxied": true}'
+
 # Ask the user for subdomains
 read -p "Enter subdomain names (comma-separated): " subdomain_names
 IFS=',' read -ra subdomain_array <<< "$subdomain_names"
 for subdomain in "${subdomain_array[@]}"; do
     # Create A record for subdomain
-    echo "Creating A record for $subdomain"
-    # Ask the user for the server IP address
-    read -p "Enter the IP address for $subdomain: " server_ip
+    echo "Creating A record for $subdomain.$domain_name"
+    read -p "Enter the IP address for $subdomain.$domain_name: " server_ip
     curl -X POST "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records" \
          -H "Authorization: Bearer $cloudflare_api_key" \
          -H "Content-Type: application/json" \
-         --data '{"type": "A", "name": "'"$subdomain"'", "content": "'"$server_ip"'", "proxied": false}'
+         --data '{"type": "A", "name": "'"$subdomain.$domain_name"'", "content": "'"$server_ip"'", "proxied": false}'
 
     # Create wildcard CNAME record for subdomain
-    echo "Creating wildcard CNAME record for $subdomain"
+    echo "Creating wildcard CNAME record for $subdomain.$domain_name"
     curl -X POST "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records" \
          -H "Authorization: Bearer $cloudflare_api_key" \
          -H "Content-Type: application/json" \
-         --data '{"type": "CNAME", "name": "'"$subdomain"'", "content": "'"$domain_name"'", "proxied": true}'
+         --data '{"type": "CNAME", "name": "'"$subdomain.$domain_name"'", "content": "'"$domain_name"'", "proxied": true}'
 done
 
-echo "Subdomains and DNS records created."
+echo "Main domain and subdomains DNS records created."
 
 # Ask the user for SSH details
 echo "Choose an SSH username:"
@@ -123,9 +137,6 @@ scp "$website_zip_file" "$ssh_username@$server_ip:/var/www/html/"
 
 # SSH into the server and unzip the website files
 ssh "$ssh_username@$server_ip" "unzip /var/www/html/$(basename $website_zip_file) -d /var/www/html/"
-
-# Clean up
-sudo apt autoremove -y
 
 # Clean up
 sudo apt autoremove -y
