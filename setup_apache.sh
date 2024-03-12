@@ -114,13 +114,14 @@ ssh "$ssh_username@$server_ip" "chmod 600 $ssh_key_file"
 # Ask the user for the path to the website zip file
 read -p "Enter the path to your website zip file (e.g., /path/to/website.zip): " website_zip_file
 
-# SFTP the website zip file to the server
-sftp "$ssh_username@$server_ip" <<EOF
-put "$website_zip_file"
-EOF
+# Use scp to upload the website zip file to the server
+scp "$website_zip_file" "$ssh_username@$server_ip:/var/www/html/"
 
 # SSH into the server and unzip the website files
-ssh "$ssh_username@$server_ip" "unzip $website_zip_file -d /var/www/html/"
+ssh "$ssh_username@$server_ip" "unzip /var/www/html/$(basename $website_zip_file) -d /var/www/html/"
+
+# Clean up
+sudo apt autoremove -y
 
 # Clean up
 sudo apt autoremove -y
