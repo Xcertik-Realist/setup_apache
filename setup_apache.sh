@@ -1,17 +1,40 @@
 #!/bin/bash
 
+# Define colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+RESET='\033[0m'
+
+# Define emojis
+EMOJIS=("🚀" "💻" "🎉" "👍" "🔥")
+
 # Update package lists
+echo -e "${RED}${EMOJIS[0]} Updating package lists...${RESET}"
 sudo apt update
 
 # Upgrade packages
+echo -e "${GREEN}${EMOJIS[1]} Upgrading packages...${RESET}"
 sudo apt upgrade -y
 
 # Install Apache
+echo -e "${YELLOW}${EMOJIS[2]} Installing Apache...${RESET}"
 sudo apt install apache2 -y
+
+# Install PHP
+echo -e "${BLUE}${EMOJIS[3]} Installing PHP...${RESET}"
+sudo apt install php libapache2-mod-php -y
+
 # Install jq for parsing cloudflare response
-sudo apt install jq 
-#install putty tools for coverting ssh key files
-sudo apt install putty-tools
+echo -e "${MAGENTA}${EMOJIS[4]} Installing jq...${RESET}"
+sudo apt install jq -y
+
+# Install putty tools for converting ssh key files
+echo -e "${CYAN}${EMOJIS[0]} Installing putty tools...${RESET}"
+sudo apt install putty-tools -y
 
 # Ask the user for the domain name
 read -p "Enter your domain name (e.g., example.com): " domain_name
@@ -38,8 +61,8 @@ sudo systemctl reload apache2
 echo "127.0.0.1 $domain_name" | sudo tee -a /etc/hosts
 
 # Inform the user
-echo "Apache installed and configured for domain: $domain_name"
-echo "You can access your website at http://$domain_name/"
+echo -e "${RED}${EMOJIS[1]} Apache installed and configured for domain: $domain_name"
+echo -e "${GREEN}${EMOJIS[2]} You can access your website at http://$domain_name/"
 
 # Ask the user for Cloudflare API key
 read -p "Enter your Cloudflare API key: " cloudflare_api_key
@@ -50,10 +73,10 @@ zone_id=$(curl -sX GET "https://api.cloudflare.com/client/v4/zones" \
      -H "Content-Type: application/json" | jq -r '.result[0].id')
 
 # Use the retrieved Zone ID for further operations
-echo "Zone ID for $domain_name: $zone_id"
+echo -e "${YELLOW}${EMOJIS[3]} Zone ID for $domain_name: $zone_id"
 
 # Create A record for main domain
-echo "Creating A record for $domain_name"
+echo -e "${BLUE}${EMOJIS[4]} Creating A record for $domain_name"
 read -p "Enter the IP address for $domain_name: " server_ip
 curl -X POST "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records" \
      -H "Authorization: Bearer $cloudflare_api_key" \
@@ -61,7 +84,7 @@ curl -X POST "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records" \
      --data '{"type": "A", "name": "'"$domain_name"'", "content": "'"$server_ip"'", "proxied": false}'
 
 # Create wildcard CNAME record for main domain
-echo "Creating wildcard CNAME record for $domain_name"
+echo -e "${MAGENTA}${EMOJIS[0]} Creating wildcard CNAME record for $domain_name"
 curl -X POST "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records" \
      -H "Authorization: Bearer $cloudflare_api_key" \
      -H "Content-Type: application/json" \
@@ -72,7 +95,7 @@ read -p "Enter subdomain names (comma-separated): " subdomain_names
 IFS=',' read -ra subdomain_array <<< "$subdomain_names"
 for subdomain in "${subdomain_array[@]}"; do
     # Create A record for subdomain
-    echo "Creating A record for $subdomain.$domain_name"
+    echo -e "${CYAN}${EMOJIS[1]} Creating A record for $subdomain.$domain_name"
     read -p "Enter the IP address for $subdomain.$domain_name: " server_ip
     curl -X POST "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records" \
          -H "Authorization: Bearer $cloudflare_api_key" \
@@ -80,63 +103,15 @@ for subdomain in "${subdomain_array[@]}"; do
          --data '{"type": "A", "name": "'"$subdomain.$domain_name"'", "content": "'"$server_ip"'", "proxied": false}'
 
     # Create wildcard CNAME record for subdomain
-    echo "Creating wildcard CNAME record for $subdomain.$domain_name"
+    echo -e "${RED}${EMOJIS[2]} Creating wildcard CNAME record for $subdomain.$domain_name"
     curl -X POST "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records" \
          -H "Authorization: Bearer $cloudflare_api_key" \
          -H "Content-Type: application/json" \
          --data '{"type": "CNAME", "name": "'"$subdomain.$domain_name"'", "content": "'"$domain_name"'", "proxied": true}'
 done
 
-echo "Main domain and subdomains DNS records created."
-
-# Ask the user for SSH details
-echo "Choose an SSH username:"
-echo "1. root"
-echo "2. ubuntu"
-echo "3. Custom username"
-read -p "Enter the number corresponding to your choice: " ssh_choice
-
-case "$ssh_choice" in
-    1)
-        ssh_username="root"
-        ;;
-    2)
-        ssh_username="ubuntu"
-        ;;
-    3)
-        read -p "Enter a custom username: " ssh_username
-        ;;
-    *)
-        echo "Invalid choice. Using default username 'ubuntu'."
-        ssh_username="ubuntu"
-        ;;
-esac
-
-read -p "Enter the server IP address: " server_ip
-read -p "Enter the path to your SSH key file (e.g., /path/to/key.pem or /path/to/key.ppk): " ssh_key_file
-
-# Convert .ppk to .pem if needed
-if [[ "$ssh_key_file" == *.ppk ]]; then
-    puttygen "$ssh_key_file" -O private-openssh -o "${ssh_key_file%.ppk}.pem"
-    ssh_key_file="${ssh_key_file%.ppk}.pem"
-fi
-
-# SFTP the key file to the server
-sftp "$ssh_username@$server_ip" <<EOF
-put "$ssh_key_file"
-EOF
-
-# Set correct permissions for the key file
-ssh "$ssh_username@$server_ip" "chmod 600 $ssh_key_file"
-
-# Ask the user for the path to the website zip file
-read -p "Enter the path to your website zip file (e.g., /path/to/website.zip): " website_zip_file
-
-# Use scp to upload the website zip file to the server
-scp "$website_zip_file" "$ssh_username@$server_ip:/var/www/html/"
-
-# SSH into the server and unzip the website files
-ssh "$ssh_username@$server_ip" "unzip /var/www/html/$(basename $website_zip_file) -d /var/www/html/"
+echo -e "${GREEN}${EMOJIS[3]} Main domain and subdomains DNS records created."
 
 # Clean up
+echo -e "${YELLOW}${EMOJIS[4]} Cleaning up..."
 sudo apt autoremove -y
