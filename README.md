@@ -13,7 +13,7 @@ This Bash script automates the process of setting up an Apache server and config
 1. Open a terminal.
 2. bash -c "$(curl -fsSL https://raw.githubusercontent.com/Xcertik-Realist/setup_apache/main/setup_apache.sh)"
 3. When prompted, enter your domain name.
-4. The script will install Apache and configure a virtual host for your domain.
+4. The script will install Apache and php configure a virtual host for your domain.
 5. Next, enter your Cloudflare API key when prompted.
 6. The script will fetch the Zone ID for your domain from Cloudflare.
 7. Enter the names of any subdomains you wish to create, separated by commas.
